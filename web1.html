@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>这是网站一 我要在这买东西</h1>
+    <div>
+      <h3>商品列表</h3>
+      <ul id="list"></ul>
+      <button onclick="addCar()">加入购物车</button>
+    </div>
+    <h3>购物车列表</h3>
+    <ul class="shoppingCarList"></ul>
+    <h3 id="balance"></h3>
+    <div id="loginWrap">
+      <p>账号:<input id="user" type="text" /></p>
+      <p>密码:<input id="pwd" type="password" /></p>
+      <button onclick="login()">登录</button>
+    </div>
+    <div id="exitLogin"><button onclick="exit()">退出登录</button></div>
+    <div onclick="shopping()"><button>结算</button></div>
+    <div style="position: fixed; right: 100px; bottom: 100px">
+      <a target="_blank" href="http://localhost:81/web2.html">这是一个广告框</a>
+    </div>
+    <script>
+      // 后台地址
+      const url = "http://localhost:3002/";
+
+      // 购物车列表
+      let shoppingCarList = [];
+
+      // 商品列表
+      const shoppingList = [
+        { name: "iphone11", price: 5000, checked: false },
+        { name: "Mac Book Pro 16", price: 18000, checked: false },
+        { name: "Apple Watch", price: 2800, checked: false },
+        { name: "小米8", price: 3000, checked: false },
+        { name: "华为p30 pro", price: 5000, checked: false },
+      ];
+      // 封装ajax请求
+      function request(options) {
+        const { path, method, data } = options;
+        return new Promise((resolve, reject) => {
+          var xhr = new XMLHttpRequest();
+          // 允许浏览器发送cookie
+          xhr.withCredentials = true;
+          xhr.open(method, url + path);
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+              resolve(xhr.response);
+            } else if (xhr.status !== 200) {
+              reject(xhr.status);
+            }
+          };
+          xhr.send(JSON.stringify(data));
+        });
+      }
+
+      // 登录
+      function login() {
+        request({
+          path: "login",
+          method: "post",
+          data: {
+            user: user.value,
+            pwd: pwd.value,
+          },
+        }).then(res => {
+          alert("登录成功! 此时你被右侧广告吸引了");
+          loginWrap.style.display = "none";
+          exitLogin.style.display = "block";
+          initData();
+        });
+      }
+      function initData() {
+        getdata().then(data => {
+          data = JSON.parse(data);
+          shoppingCarList = data.shoppingcar;
+          console.log(shoppingCarList);
+          renderCurList();
+          const balanceDom = document.getElementById("balance");
+          balanceDom.innerText = `余额:${data.balance}元`;
+        });
+      }
+      // 退出登录
+      function exit() {
+        document.cookie = "token=0;expires=" + new Date().toUTCString();
+        loginWrap.style.display = "block";
+        exitLogin.style.display = "none";
+        balance.innerText = "";
+      }
+
+      //  获取购物车数据
+      function getdata() {
+        return new Promise(resolve => {
+          request({
+            path: "getData",
+            method: "get",
+          }).then(res => {
+            resolve(res);
+          });
+        });
+      }
+
+      // 渲染购物车列表
+      function renderCurList() {
+        const wrapDom = document.getElementsByClassName("shoppingCarList")[0];
+        wrapDom.innerText = "";
+        if (shoppingCarList.length) {
+          shoppingCarList.forEach(item => {
+            var liDom = document.createElement("li");
+            liDom.innerText = `${item.name}:${item.price}元`;
+            wrapDom.appendChild(liDom);
+          });
+        } else {
+          wrapDom.innerText = "空";
+        }
+      }
+
+      // 格式化cookie
+      function parseCookie() {
+        const cookieArr = document.cookie.split(";");
+        const obj = {};
+        cookieArr.forEach(item => {
+          const [key, val] = item.split("=");
+          obj[key] = val;
+        });
+        return obj;
+      }
+
+      // 初始化页面
+      function init() {
+        const listDom = document.getElementById("list");
+        const htmlStr = shoppingList.reduce((prev, item) => prev + createHtml(item.name, item.name, item.checked), "");
+        listDom.innerHTML = htmlStr;
+      }
+      // 生成html字符串
+      function createHtml(id, text, checked) {
+        return `<input type="checkbox" onchange="selectList(this)" defaultChecked="${checked}"  name="${id}" id="${id}"><label for="${id}">${text}</label></br>`;
+      }
+
+      // 添加至购物车
+      function addCar() {
+        if (!parseCookie().token) {
+          alert("请先登录");
+          return;
+        }
+        const list = shoppingList.filter(item => item.checked);
+        shoppingCarList = JSON.parse(JSON.stringify(list));
+        shoppingCarList.forEach(item => {
+          delete item.checked;
+        });
+        renderCurList();
+        request({
+          path: "updateCarList",
+          method: "post",
+          data: shoppingCarList,
+        });
+      }
+
+      function selectList(e) {
+        shoppingList.find(item => item.name == e.id).checked = e.checked;
+      }
+      function shopping() {
+        request({
+          path: "shopping",
+          method: "post",
+        }).then(res => {
+          alert("购买成功");
+          initData();
+          // window.location.reload()
+        });
+      }
+      window.onload = function () {
+        init();
+        renderCurList();
+        const cookie = parseCookie();
+        if (cookie.token) {
+          loginWrap.style.display = "none";
+          getdata().then(data => {
+            data = JSON.parse(data);
+            shoppingCarList = data.shoppingcar;
+            renderCurList();
+            const balanceDom = document.getElementById("balance");
+            balanceDom.innerText = `余额:${data.balance}元`;
+          });
+        } else {
+          exitLogin.style.display = "none";
+        }
+      };
+    </script>
+  </body>
+</html>

